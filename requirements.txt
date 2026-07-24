@@ -1,0 +1,6 @@
+customtkinter>=5.2.0
+pypdf>=5.0.0
+pymupdf>=1.24.0
+Pillow>=10.0.0
+windnd>=1.0.7
+pyinstaller>=6.0.0
