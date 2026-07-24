@@ -6,6 +6,8 @@ venv/
 dist/
 build/
 *.spec
+PDFMerger-windows.zip
+*.zip
 .pytest_cache/
 .mypy_cache/
 *.pdf
