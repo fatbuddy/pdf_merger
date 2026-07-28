@@ -8,6 +8,7 @@ from typing import Callable
 
 import customtkinter as ctk
 from PIL import Image
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
 from app.models import PageItem
 from app.pdf_service import PdfError, load_pages, merge_pages, render_thumbnail
@@ -112,7 +113,7 @@ class ThumbnailCard(ctk.CTkFrame):
         self._on_drag_end()
 
 
-class MergerApp(ctk.CTk):
+class MergerApp(ctk.CTk, TkinterDnD.DnDWrapper):
     def __init__(self) -> None:
         super().__init__()
         self.title("PDF Merger")
@@ -127,6 +128,7 @@ class MergerApp(ctk.CTk):
         self._drag_from: int | None = None
         self._drop_target: int | None = None
         self._busy = False
+        self._file_drop_enabled = False
 
         self._build_chrome()
         self._hook_file_drop()
@@ -175,27 +177,32 @@ class MergerApp(ctk.CTk):
 
     def _hook_file_drop(self) -> None:
         try:
-            import windnd
-
-            windnd.hook_dropfiles(self, func=self._on_files_dropped)
+            self.TkdndVersion = TkinterDnD._require(self)
+            self._register_file_drop_targets(self)
+            self._file_drop_enabled = True
         except Exception:
             pass
 
-    def _on_files_dropped(self, paths: list) -> None:
-        decoded: list[Path] = []
-        for raw in paths:
-            if isinstance(raw, bytes):
-                try:
-                    text = raw.decode("utf-8")
-                except UnicodeDecodeError:
-                    text = raw.decode("mbcs", errors="ignore")
-            else:
-                text = str(raw)
-            path = Path(text)
-            if path.suffix.lower() == ".pdf":
-                decoded.append(path)
+    def _register_widget_drop(self, widget: tk.Misc) -> None:
+        try:
+            widget.drop_target_register(DND_FILES)
+            widget.dnd_bind("<<Drop>>", self._on_files_dropped)
+        except (tk.TclError, AttributeError):
+            pass
+
+    def _register_file_drop_targets(self, widget: tk.Misc) -> None:
+        self._register_widget_drop(widget)
+        for child in widget.winfo_children():
+            self._register_file_drop_targets(child)
+
+    def _on_files_dropped(self, event: tk.Event) -> None:
+        try:
+            paths = [Path(p) for p in self.tk.splitlist(event.data)]
+        except tk.TclError:
+            return
+        decoded = [path for path in paths if path.suffix.lower() == ".pdf"]
         if decoded:
-            self.after(0, lambda: self._ingest_paths(decoded))
+            self._ingest_paths(decoded)
 
     def _set_busy(self, busy: bool, message: str | None = None) -> None:
         self._busy = busy
@@ -326,6 +333,8 @@ class MergerApp(ctk.CTk):
             )
             card.grid(row=row, column=col, padx=CARD_PAD, pady=CARD_PAD, sticky="n")
             self._cards[item.id] = card
+            if self._file_drop_enabled:
+                self._register_file_drop_targets(card)
 
         self._apply_cached_thumbs()
 
