@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import fitz
@@ -11,10 +12,21 @@ from app.models import PageItem
 
 THUMB_MAX_WIDTH = 140
 THUMB_MAX_HEIGHT = 180
+LARGE_PDF_THRESHOLD_BYTES = 10 * 1024 * 1024
+COMPRESS_JPEG_QUALITY = 75
 
 
 class PdfError(Exception):
     """User-facing PDF load/merge error."""
+
+
+def format_file_size(size_bytes: int) -> str:
+    """Return a short human-readable file size."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
 
 
 def load_pages(path: Path) -> list[PageItem]:
@@ -127,3 +139,37 @@ def merge_pages(pages: list[PageItem], out_path: Path) -> None:
             if hasattr(reader, "close"):
                 reader.close()
         writer.close()
+
+
+def compress_pdf(
+    src: Path,
+    dst: Path,
+    *,
+    jpeg_quality: int = COMPRESS_JPEG_QUALITY,
+) -> None:
+    """Write a smaller copy of src to dst using PyMuPDF."""
+    src = Path(src)
+    dst = Path(dst)
+    try:
+        doc = fitz.open(str(src))
+    except Exception as exc:  # noqa: BLE001
+        raise PdfError(f"Could not open merged PDF for compression: {exc}") from exc
+
+    try:
+        if hasattr(doc, "rewrite_images"):
+            doc.rewrite_images(quality=jpeg_quality)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        doc.save(str(dst), garbage=4, deflate=True, clean=True)
+    except Exception as exc:  # noqa: BLE001
+        raise PdfError(f"Could not compress PDF: {exc}") from exc
+    finally:
+        doc.close()
+
+
+def write_merged_pdf(src: Path, dst: Path) -> int:
+    """Copy merged PDF bytes to dst and return the final file size."""
+    src = Path(src)
+    dst = Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    return dst.stat().st_size

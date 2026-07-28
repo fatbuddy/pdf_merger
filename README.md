@@ -7,8 +7,8 @@ Windows desktop app to merge multiple PDFs into one file, with a thumbnail grid 
 Grab the latest release from [Releases](https://github.com/fatbuddy/pdf_merger/releases):
 
 1. Download `PDFMerger-windows.zip`
-2. Unzip the folder
-3. Run `PDFMerger.exe`
+2. Unzip the archive
+3. Run `PDFMerger.exe` (single portable file — no install or extra folders)
 
 No Python install is required. Some antivirus tools may flag unsigned PyInstaller binaries; that is a common false positive for this packaging method.
 
@@ -19,12 +19,14 @@ No Python install is required. Some antivirus tools may flag unsigned PyInstalle
 - Drag thumbnails to rearrange page order
 - Remove individual pages or clear all
 - Save the result as a single PDF
+- Shows the saved file size; for large outputs (over 10 MB), offers optional compression before saving
 
 ## Usage
 
 1. Click **Add PDFs** (or drop `.pdf` files onto the window).
 2. Drag page thumbnails to set the order; use **✕** to drop a page.
 3. Click **Save Merged PDF** and choose the output path.
+4. If the merged file is large, choose **Save original** or **Save compressed** (with estimated size).
 
 ## Run from source
 
@@ -41,4 +43,4 @@ python main.py
 build.bat
 ```
 
-Output: `dist\PDFMerger\PDFMerger.exe`
+Output: `dist\PDFMerger.exe` (single portable executable)

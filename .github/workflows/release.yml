@@ -23,14 +23,14 @@ jobs:
 
       - name: Build PDFMerger.exe
         run: >
-          python -m PyInstaller --noconfirm --clean --windowed --name PDFMerger
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name PDFMerger
           --collect-all customtkinter
           --collect-all pymupdf
           --collect-all tkinterdnd2
           main.py
 
       - name: Package release zip
-        run: Compress-Archive -Path dist\PDFMerger\* -DestinationPath PDFMerger-windows.zip -Force
+        run: Compress-Archive -Path dist\PDFMerger.exe -DestinationPath PDFMerger-windows.zip -Force
 
       - uses: softprops/action-gh-release@v2
         with:
