@@ -123,6 +123,69 @@ class ThumbnailCard(ctk.CTkFrame):
         self._on_drag_end()
 
 
+def _center_dialog(dialog: ctk.CTkToplevel, master: tk.Misc) -> None:
+    dialog.update_idletasks()
+    x = master.winfo_rootx() + (master.winfo_width() - dialog.winfo_width()) // 2
+    y = master.winfo_rooty() + (master.winfo_height() - dialog.winfo_height()) // 2
+    dialog.geometry(f"+{x}+{y}")
+
+
+class SaveConfirmDialog(ctk.CTkToplevel):
+    """Confirm merged PDF size before choosing a save location."""
+
+    def __init__(self, master: tk.Misc, *, merged_size: int) -> None:
+        super().__init__(master)
+        self.title("Merged PDF ready")
+        self.resizable(False, False)
+        self.transient(master)
+        self.grab_set()
+        self.result: bool = False
+
+        body = ctk.CTkFrame(self)
+        body.pack(fill="both", expand=True, padx=20, pady=20)
+        body.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            body,
+            text=(
+                f"Merged PDF size: {format_file_size(merged_size)}\n\n"
+                "Choose where to save the file next."
+            ),
+            justify="left",
+            wraplength=420,
+            font=ctk.CTkFont(size=14),
+        ).grid(row=0, column=0, sticky="w", pady=(0, 16))
+
+        buttons = ctk.CTkFrame(body, fg_color="transparent")
+        buttons.grid(row=1, column=0, sticky="e")
+        ctk.CTkButton(
+            buttons,
+            text="Cancel",
+            width=110,
+            fg_color="gray40",
+            command=self._cancel,
+        ).grid(row=0, column=0, padx=(0, 8))
+        ctk.CTkButton(
+            buttons,
+            text="Choose save location",
+            width=160,
+            command=self._confirm,
+        ).grid(row=0, column=1)
+
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+        _center_dialog(self, master)
+
+    def _confirm(self) -> None:
+        self.result = True
+        self.grab_release()
+        self.destroy()
+
+    def _cancel(self) -> None:
+        self.result = False
+        self.grab_release()
+        self.destroy()
+
+
 class CompressionChoiceDialog(ctk.CTkToplevel):
     """Let the user pick the original or compressed merged PDF."""
 
@@ -147,12 +210,13 @@ class CompressionChoiceDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             body,
             text=(
-                f"The merged PDF is {format_file_size(original_size)}.\n"
-                f"Compress before saving? Estimated size: "
-                f"{format_file_size(compressed_size)}."
+                f"Merged PDF size: {format_file_size(original_size)}\n\n"
+                f"This file is large. Compress before saving?\n"
+                f"Estimated compressed size: {format_file_size(compressed_size)}."
             ),
             justify="left",
             wraplength=420,
+            font=ctk.CTkFont(size=14),
         ).grid(row=0, column=0, sticky="w", pady=(0, 16))
 
         buttons = ctk.CTkFrame(body, fg_color="transparent")
@@ -179,10 +243,7 @@ class CompressionChoiceDialog(ctk.CTkToplevel):
         ).grid(row=0, column=2)
 
         self.protocol("WM_DELETE_WINDOW", self._cancel)
-        self.update_idletasks()
-        x = master.winfo_rootx() + (master.winfo_width() - self.winfo_width()) // 2
-        y = master.winfo_rooty() + (master.winfo_height() - self.winfo_height()) // 2
-        self.geometry(f"+{x}+{y}")
+        _center_dialog(self, master)
 
     def _choose(self, choice: Literal["original", "compressed"]) -> None:
         self.result = choice
@@ -362,18 +423,9 @@ class MergerApp(ctk.CTk, TkinterDnD.DnDWrapper):
         if not self.pages:
             messagebox.showinfo("Nothing to save", "Add at least one PDF page first.")
             return
-        out = filedialog.asksaveasfilename(
-            title="Save merged PDF",
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf")],
-            initialfile="merged.pdf",
-        )
-        if not out:
-            return
 
-        out_path = Path(out)
         pages_snapshot = list(self.pages)
-        self._set_busy(True, "Saving…")
+        self._set_busy(True, "Merging PDFs…")
 
         def worker() -> None:
             temp_merged: Path | None = None
@@ -386,6 +438,12 @@ class MergerApp(ctk.CTk, TkinterDnD.DnDWrapper):
 
                 compressed_size: int | None = None
                 if merged_size > LARGE_PDF_THRESHOLD_BYTES:
+                    self.after(
+                        0,
+                        lambda: self.status.configure(
+                            text=f"Merged size: {format_file_size(merged_size)} — compressing…"
+                        ),
+                    )
                     with tempfile.NamedTemporaryFile(
                         suffix=".pdf", delete=False
                     ) as handle:
@@ -395,8 +453,7 @@ class MergerApp(ctk.CTk, TkinterDnD.DnDWrapper):
 
                 self.after(
                     0,
-                    lambda: self._complete_save(
-                        out_path,
+                    lambda: self._confirm_and_save(
                         temp_merged,
                         merged_size,
                         temp_compressed,
@@ -404,20 +461,27 @@ class MergerApp(ctk.CTk, TkinterDnD.DnDWrapper):
                     ),
                 )
             except PdfError as exc:
-                self.after(0, lambda: self._save_failed(str(exc), temp_merged, temp_compressed))
+                self.after(
+                    0,
+                    lambda: self._save_failed(str(exc), temp_merged, temp_compressed),
+                )
             except Exception as exc:  # noqa: BLE001
-                self.after(0, lambda: self._save_failed(str(exc), temp_merged, temp_compressed))
+                self.after(
+                    0,
+                    lambda: self._save_failed(str(exc), temp_merged, temp_compressed),
+                )
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _complete_save(
+    def _confirm_and_save(
         self,
-        out_path: Path,
         temp_merged: Path,
         merged_size: int,
         temp_compressed: Path | None,
         compressed_size: int | None,
     ) -> None:
+        self._set_busy(False)
+        self.status.configure(text=f"Merged size: {format_file_size(merged_size)}")
         try:
             source = temp_merged
             if temp_compressed is not None and compressed_size is not None:
@@ -434,7 +498,23 @@ class MergerApp(ctk.CTk, TkinterDnD.DnDWrapper):
                     if dialog.result == "compressed"
                     else temp_merged
                 )
+            else:
+                dialog = SaveConfirmDialog(self, merged_size=merged_size)
+                self.wait_window(dialog)
+                if not dialog.result:
+                    return
 
+            out = filedialog.asksaveasfilename(
+                title="Save merged PDF",
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf")],
+                initialfile="merged.pdf",
+            )
+            if not out:
+                return
+
+            out_path = Path(out)
+            self._set_busy(True, f"Saving {format_file_size(merged_size)}…")
             final_size = write_merged_pdf(source, out_path)
             self._save_ok(out_path, final_size)
         except PdfError as exc:
