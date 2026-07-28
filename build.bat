@@ -10,7 +10,7 @@ echo Building PDFMerger.exe...
 python -m PyInstaller --noconfirm --clean --windowed --name PDFMerger ^
   --collect-all customtkinter ^
   --collect-all pymupdf ^
-  --hidden-import windnd ^
+  --collect-all tkinterdnd2 ^
   main.py
 if errorlevel 1 exit /b 1
 
