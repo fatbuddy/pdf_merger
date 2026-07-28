@@ -7,7 +7,7 @@ python -m pip install -r requirements.txt
 if errorlevel 1 exit /b 1
 
 echo Building PDFMerger.exe...
-python -m PyInstaller --noconfirm --clean --windowed --name PDFMerger ^
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name PDFMerger ^
   --collect-all customtkinter ^
   --collect-all pymupdf ^
   --collect-all tkinterdnd2 ^
@@ -15,5 +15,5 @@ python -m PyInstaller --noconfirm --clean --windowed --name PDFMerger ^
 if errorlevel 1 exit /b 1
 
 echo.
-echo Done. Run: dist\PDFMerger\PDFMerger.exe
+echo Done. Run: dist\PDFMerger.exe
 endlocal

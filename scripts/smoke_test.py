@@ -5,7 +5,13 @@ from pathlib import Path
 import fitz
 from pypdf import PdfReader
 
-from app.pdf_service import load_pages, merge_pages, render_thumbnail
+from app.pdf_service import (
+    compress_pdf,
+    format_file_size,
+    load_pages,
+    merge_pages,
+    render_thumbnail,
+)
 
 samples = Path("samples")
 samples.mkdir(exist_ok=True)
@@ -28,6 +34,12 @@ img = render_thumbnail(ordered[0].path, ordered[0].page_index)
 assert img.size[0] > 0 and img.size[1] > 0
 
 merge_pages(ordered, out)
+assert out.stat().st_size > 0
+assert format_file_size(out.stat().st_size).endswith(("B", "KB", "MB"))
+
+compressed = Path("samples/merged_test_compressed.pdf")
+compress_pdf(out, compressed)
+assert compressed.stat().st_size > 0
 reader = PdfReader(str(out))
 assert len(reader.pages) == 4
 
