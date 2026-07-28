@@ -19,14 +19,15 @@ No Python install is required. Some antivirus tools may flag unsigned PyInstalle
 - Drag thumbnails to rearrange page order
 - Remove individual pages or clear all
 - Save the result as a single PDF
-- Shows the saved file size; for large outputs (over 10 MB), offers optional compression before saving
+- Shows merged file size and compression estimate in the toolbar (updates as you add, remove, or reorder pages)
+- Optional **Compress** checkbox before saving
 
 ## Usage
 
 1. Click **Add PDFs** (or drop `.pdf` files onto the window).
 2. Drag page thumbnails to set the order; use **✕** to drop a page.
-3. Click **Save Merged PDF** — the app merges your pages and shows the file size before you pick where to save.
-4. For large outputs (over 10 MB), choose **Save original** or **Save compressed**.
+3. Check the toolbar for **Merged** size and the optional **Compress** size estimate.
+4. Tick **Compress** if you want a smaller output file, then click **Save Merged PDF**.
 
 ## Run from source
 
