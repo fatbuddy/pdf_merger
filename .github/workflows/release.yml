@@ -2,17 +2,44 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine release tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          else
+            latest="$(git tag -l 'v*' --sort=-v:refname | head -1)"
+            if [ -z "$latest" ]; then
+              tag="v1.0.0"
+            else
+              ver="${latest#v}"
+              IFS='.' read -r major minor patch <<< "$ver"
+              tag="v${major}.${minor}.$((patch + 1))"
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $tag"
 
       - uses: actions/setup-python@v5
         with:
@@ -34,5 +61,17 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           files: PDFMerger-windows.zip
           generate_release_notes: true
+
+      - name: Push release tag
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
