@@ -22,3 +22,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr merge "${{ github.event.pull_request.number }}" --merge --delete-branch
+
+  release:
+    needs: merge
+    if: success()
+    uses: ./.github/workflows/build-release.yml
