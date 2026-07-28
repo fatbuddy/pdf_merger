@@ -25,8 +25,8 @@ No Python install is required. Some antivirus tools may flag unsigned PyInstalle
 
 1. Click **Add PDFs** (or drop `.pdf` files onto the window).
 2. Drag page thumbnails to set the order; use **✕** to drop a page.
-3. Click **Save Merged PDF** and choose the output path.
-4. If the merged file is large, choose **Save original** or **Save compressed** (with estimated size).
+3. Click **Save Merged PDF** — the app merges your pages and shows the file size before you pick where to save.
+4. For large outputs (over 10 MB), choose **Save original** or **Save compressed**.
 
 ## Run from source
 
